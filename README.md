@@ -36,7 +36,7 @@ This paper introduces **Stepwise Progress Attribution (SPA)**, a novel reward re
   - [GRPO](#grpo)
   - [RAGEN](#ragen)
 
-### Setup
+### ⚙️ Setup
 Due to library version incompatibilities, we set up two separate virtual environments:
 - One for training the progress estimator
 - Another for RL training and evaluation
@@ -48,7 +48,7 @@ Install Python Environment for RL training and evaluation
 ```
 ```
 
-### Usage
+### ⛏️ Usage
 
 #### Base Agent SFT Training
 
@@ -70,7 +70,7 @@ bash webshop_llama3b.sh
 
 #### Evaluation
 
-### Baselines
+### 💪 Baselines
 
 ## 🌹 Acknowledgement
 
