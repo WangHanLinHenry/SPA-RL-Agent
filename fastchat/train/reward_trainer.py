@@ -1,0 +1,387 @@
+# Copyright 2023 The HuggingFace Team. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+import inspect
+import warnings
+from collections import defaultdict
+from dataclasses import FrozenInstanceError, replace
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
+import pandas as pd
+import torch
+import torch.nn as nn
+from accelerate.utils import gather_object
+from datasets import Dataset
+from transformers import DataCollator, PreTrainedModel, PreTrainedTokenizerBase, Trainer, TrainingArguments
+from transformers.trainer_callback import TrainerCallback
+from transformers.trainer_pt_utils import nested_detach
+from transformers.trainer_utils import EvalPrediction
+from dataclasses import dataclass
+import transformers
+
+from trl.import_utils import is_peft_available
+# from trl.trainer.utils import RewardDataCollatorWithPadding, compute_accuracy, print_rich_table
+from trl.trainer.training_configs import RewardConfig
+from torch.nn.functional import sigmoid
+from torch.nn.functional import cross_entropy
+from torch.nn.functional import binary_cross_entropy
+
+
+if is_peft_available():
+    from peft import PeftModel, get_peft_model, prepare_model_for_kbit_training
+
+@dataclass
+class RewardDataCollatorWithPadding:
+    r"""
+    Reward DataCollator class that pads the inputs to the maximum length of the batch.
+    Args:
+        tokenizer (`PreTrainedTokenizerBase`):
+            The tokenizer used for encoding the data.
+        padding (`Union[bool, str, `PaddingStrategy`]`, `optional`, defaults to `True`):
+            padding_strategy to pass to the tokenizer.
+        max_length (`Optional[int]`, `optional`, defaults to `None`):
+            The maximum length of the sequence to be processed.
+        pad_to_multiple_of (`Optional[int]`, `optional`, defaults to `None`):
+            If set will pad the sequence to a multiple of the provided value.
+        return_tensors (`str`, `optional`, defaults to `"pt"`):
+            The tensor type to use.
+    """
+
+    tokenizer: PreTrainedTokenizerBase
+    padding: Union[bool, str] = True
+    max_length: Optional[int] = None
+    pad_to_multiple_of: Optional[int] = None
+    return_tensors: str = "pt"
+
+    def __call__(self, features: List[Dict[str, Any]]) -> Dict[str, Any]:
+        features_input = []
+        rewards = []
+        for feature in features:
+            # check if the keys are named as expected
+            if (
+                "input_ids" not in feature
+                or "attention_mask" not in feature
+            ):
+                raise ValueError(
+                    "The features should include `input_ids` and `attention_mask`"
+                )
+
+            features_input.append(
+                {
+                    "input_ids": feature["input_ids"][0],
+                    "attention_mask": feature["attention_mask"][0],
+                }
+            )
+            rewards.append(feature["reward"])
+        batch_input = self.tokenizer.pad(
+            features_input,
+            padding=self.padding,
+            max_length=self.max_length,
+            pad_to_multiple_of=self.pad_to_multiple_of,
+            return_tensors=self.return_tensors,
+        )
+        rewards = torch.tensor(rewards, dtype=torch.float)
+        batch = {
+            "input_ids": batch_input["input_ids"],
+            "attention_mask": batch_input["attention_mask"],
+            "labels": rewards,
+        }
+
+        return batch
+
+
+class RewardTrainer(Trainer):
+    r"""
+    The RewardTrainer can be used to train your custom Reward Model. It is a subclass of the
+    `transformers.Trainer` class and inherits all of its attributes and methods. It is recommended to use
+    an `AutoModelForSequenceClassification` as the reward model. The reward model should be trained on a dataset
+    of paired examples, where each example is a tuple of two sequences. The reward model should be trained to
+    predict which example in the pair is more relevant to the task at hand.
+
+    The reward trainer expects a very specific format for the dataset. The dataset should contain two 4 entries at least
+    if you don't use the default `RewardDataCollatorWithPadding` data collator. The entries should be named
+    - `input_ids_chosen`
+    - `attention_mask_chosen`
+    - `input_ids_rejected`
+    - `attention_mask_rejected`
+
+    Optionally, you can also pass a `margin` entry to the dataset. This entry should contain the margin used to modulate the
+    loss of the reward model as outlined in https://ai.meta.com/research/publications/llama-2-open-foundation-and-fine-tuned-chat-models/.
+    If you don't pass a margin, no margin will be used.
+    """
+
+    _tag_names = ["trl", "reward-trainer"]
+
+    def __init__(
+        self,
+        model: Optional[Union[PreTrainedModel, nn.Module]] = None,
+        args: Optional[Union[RewardConfig, TrainingArguments]] = None,
+        data_collator: Optional[transformers.DataCollator] = None,
+        train_dataset: Optional[Dataset] = None,
+        eval_dataset: Optional[Union[Dataset, Dict[str, Dataset]]] = None,
+        tokenizer: Optional[PreTrainedTokenizerBase] = None,
+        model_init: Optional[Callable[[], PreTrainedModel]] = None,
+        compute_metrics: Optional[Callable[[EvalPrediction], Dict]] = None,
+        callbacks: Optional[List[TrainerCallback]] = None,
+        optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = (
+            None,
+            None,
+        ),
+        preprocess_logits_for_metrics: Optional[Callable[[torch.Tensor, torch.Tensor], torch.Tensor]] = None,
+        max_length: Optional[int] = None,
+        peft_config: Optional[Dict] = None,
+    ):
+        """
+        Initialize RewardTrainer.
+
+        Args:
+            model (`transformers.PreTrainedModel`):
+                The model to train, preferably an `AutoModelForSequenceClassification`.
+            args (`RewardConfig`):
+                The arguments to use for training.
+            data_collator (`transformers.DataCollator`):
+                The data collator to use for training. If None is specified, the default data collator (`RewardDataCollatorWithPadding`) will be used
+                which will pad the sequences to the maximum length of the sequences in the batch, given a dataset of paired sequences.
+            train_dataset (`datasets.Dataset`):
+                The dataset to use for training.
+            eval_dataset (`datasets.Dataset`):
+                The dataset to use for evaluation.
+            tokenizer (`transformers.PreTrainedTokenizerBase`):
+                The tokenizer to use for training. This argument is required if you want to use the default data collator.
+            model_init (`Callable[[], transformers.PreTrainedModel]`):
+                The model initializer to use for training. If None is specified, the default model initializer will be used.
+            compute_metrics (`Callable[[transformers.EvalPrediction], Dict]`, *optional* defaults to `compute_accuracy`):
+                The metrics to use for evaluation. If no metrics are specified, the default metric (`compute_accuracy`) will be used.
+            callbacks (`List[transformers.TrainerCallback]`):
+                The callbacks to use for training.
+            optimizers (`Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR]`):
+                The optimizer and scheduler to use for training.
+            preprocess_logits_for_metrics (`Callable[[torch.Tensor, torch.Tensor], torch.Tensor]`):
+                The function to use to preprocess the logits before computing the metrics.
+            max_length (`int`, defaults to `None`):
+                The maximum length of the sequences in the batch. This argument is required if you want to use the default data collator.
+            peft_config (`Dict`, defaults to `None`):
+                The PEFT configuration to use for training. If you pass a PEFT configuration, the model will be wrapped in a PEFT model.
+        """
+        if not is_peft_available() and peft_config is not None:
+            raise ValueError(
+                "PEFT is not installed and you passed a `peft_config` in the trainer's kwargs, please install it to use the PEFT models"
+            )
+        elif is_peft_available() and peft_config is not None:
+            if not isinstance(model, PeftModel):
+                if getattr(model, "is_loaded_in_8bit", False) or getattr(model, "is_quantized", False):
+                    _supports_gc_kwargs = "gradient_checkpointing_kwargs" in list(
+                        inspect.signature(prepare_model_for_kbit_training).parameters
+                    )
+
+                    prepare_model_kwargs = {"use_gradient_checkpointing": args.gradient_checkpointing}
+
+                    if not _supports_gc_kwargs and args.gradient_checkpointing_kwargs is not None:
+                        warnings.warn(
+                            "You passed `gradient_checkpointing_kwargs` in the trainer's kwargs, but your peft version does not support it. "
+                            "please update to the latest version of peft to use `gradient_checkpointing_kwargs`."
+                        )
+                    elif _supports_gc_kwargs and args.gradient_checkpointing_kwargs is not None:
+                        prepare_model_kwargs["gradient_checkpointing_kwargs"] = args.gradient_checkpointing_kwargs
+
+                    model = prepare_model_for_kbit_training(model, **prepare_model_kwargs)
+
+                model = get_peft_model(model, peft_config)
+
+        if data_collator is None:
+            if tokenizer is None:
+                raise ValueError(
+                    "max_length or a tokenizer must be specified when using the default RewardDataCollatorWithPadding"
+                )
+            if type(args) == TrainingArguments:
+                if max_length is None:
+                    warnings.warn(
+                        "When using RewardDataCollatorWithPadding, you should set `max_length` in RewardConfig."
+                        " It will be set to `512` by default, but you should do it yourself in the future.",
+                        UserWarning,
+                    )
+                    max_length = 512
+            else:
+                if max_length is None and args.model_max_length is None:
+                    warnings.warn(
+                        "When using RewardDataCollatorWithPadding, you should set `max_length` in RewardConfig."
+                        " It will be set to `512` by default, but you should do it yourself in the future.",
+                        UserWarning,
+                    )
+                    max_length = 512
+                if max_length is None and args.model_max_length is not None:
+                    max_length = args.model_max_length
+
+            data_collator = RewardDataCollatorWithPadding(tokenizer, max_length=max_length)
+
+            if args.remove_unused_columns:
+                try:  # for bc before https://github.com/huggingface/transformers/pull/25435
+                    args.remove_unused_columns = False
+                except FrozenInstanceError:
+                    args = replace(args, remove_unused_columns=False)
+                # warn users
+                warnings.warn(
+                    "When using RewardDataCollatorWithPadding, you should set `remove_unused_columns=False` in your RewardConfig"
+                    " we have set it for you, but you should do it yourself in the future.",
+                    UserWarning,
+                )
+
+            self.use_reward_data_collator = True
+        else:
+            self.use_reward_data_collator = False
+        super().__init__(
+            model=model,
+            args=args,
+            data_collator=data_collator,
+            train_dataset=train_dataset,
+            eval_dataset=eval_dataset,
+            tokenizer=tokenizer,
+            model_init=model_init,
+            compute_metrics=compute_metrics,
+            callbacks=callbacks,
+            optimizers=optimizers,
+            preprocess_logits_for_metrics=preprocess_logits_for_metrics,
+        )
+
+        # Add tags for models that have been loaded with the correct transformers version
+        if hasattr(self.model, "add_model_tags"):
+            self.model.add_model_tags(self._tag_names)
+
+    # def compute_loss(
+    #     self,
+    #     model: Union[PreTrainedModel, nn.Module],
+    #     inputs: Dict[str, Union[torch.Tensor, Any]],
+    #     return_outputs=False,
+    # ) -> Union[torch.Tensor, Tuple[torch.Tensor, Dict[str, torch.Tensor]]]:
+    #     if not self.use_reward_data_collator:
+    #         warnings.warn(
+    #             "The current compute_loss is implemented for RewardDataCollatorWithPadding,"
+    #             " if you are using a custom data collator make sure you know what you are doing or"
+    #             " implement your own compute_loss method."
+    #         )
+    #     rewards_chosen = model(
+    #         input_ids=inputs["input_ids_chosen"],
+    #         attention_mask=inputs["attention_mask_chosen"],
+    #         return_dict=True,
+    #     )["logits"]
+    #     rewards_rejected = model(
+    #         input_ids=inputs["input_ids_rejected"],
+    #         attention_mask=inputs["attention_mask_rejected"],
+    #         return_dict=True,
+    #     )["logits"]
+    #     # calculate loss, optionally modulate with margin
+    #     if "margin" in inputs:
+    #         loss = -nn.functional.logsigmoid(rewards_chosen - rewards_rejected - inputs["margin"]).mean()
+    #     else:
+    #         loss = -nn.functional.logsigmoid(rewards_chosen - rewards_rejected).mean()
+
+    #     if return_outputs:
+    #         return loss, {
+    #             "rewards_chosen": rewards_chosen,
+    #             "rewards_rejected": rewards_rejected,
+    #         }
+    #     return loss
+
+    def compute_loss(
+        self,
+        model: Union[PreTrainedModel, nn.Module],
+        inputs: Dict[str, Union[torch.Tensor, Any]],
+        return_outputs=False,
+    ) -> Union[torch.Tensor, Tuple[torch.Tensor, Dict[str, torch.Tensor]]]:
+        if not self.use_reward_data_collator:
+            warnings.warn(
+                "The current compute_loss is implemented for RewardDataCollatorWithPadding,"
+                " if you are using a custom data collator make sure you know what you are doing or"
+                " implement your own compute_loss method."
+            )
+        output = model(
+            input_ids=inputs["input_ids"],
+            attention_mask=inputs["attention_mask"],
+            labels=inputs["labels"],
+            return_dict=True,
+        )
+        # logits = sigmoid(logits)
+        # calculate cross entropy loss
+        # loss = binary_cross_entropy(logits, reward)
+        return output['loss']
+
+
+    def prediction_step(
+        self,
+        model: Union[PreTrainedModel, nn.Module],
+        inputs: Dict[str, Union[torch.Tensor, Any]],
+        prediction_loss_only: bool,
+        ignore_keys: Optional[List[str]] = None,
+    ) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor], Optional[torch.Tensor]]:
+        inputs = self._prepare_inputs(inputs)
+        if ignore_keys is None:
+            if hasattr(self.model, "config"):
+                ignore_keys = getattr(self.model.config, "keys_to_ignore_at_inference", [])
+            else:
+                ignore_keys = []
+
+        with torch.no_grad():
+            loss, logits_dict = self.compute_loss(model, inputs, return_outputs=True)
+
+        if prediction_loss_only:
+            return (loss, None, None)
+
+        loss = loss.detach()
+        logits = tuple(v for k, v in logits_dict.items() if k not in ignore_keys)
+        logits = nested_detach(logits)
+        # Stack accepted against rejected, mean over logits
+        # and softmax to get preferences between accepted and rejected to sum to 1
+        logits = torch.stack(logits).mean(dim=2).softmax(dim=0).T
+
+        labels = torch.zeros(logits.shape[0])
+        labels = self._prepare_inputs(labels)
+
+        return loss, logits, labels
+
+    def evaluate(self, *args, **kwargs):
+        num_print_samples = kwargs.pop("num_print_samples", 4)
+        self.visualize_samples(num_print_samples)
+        return super().evaluate(*args, **kwargs)
+
+    # def visualize_samples(self, num_print_samples: int):
+        """
+        Visualize the reward model logits prediction
+
+        Args:
+            num_print_samples (`int`, defaults to `4`):
+                The number of samples to print. Set to `-1` to print all samples.
+        """
+        eval_dataloader = self.get_eval_dataloader()
+        table = defaultdict(list)
+        for _, inputs in enumerate(eval_dataloader):
+            _, logits, _ = self.prediction_step(self.model, inputs, prediction_loss_only=False)
+            chosen_text = self.tokenizer.batch_decode(inputs["input_ids_chosen"], skip_special_tokens=True)
+            rejected_text = self.tokenizer.batch_decode(inputs["input_ids_rejected"], skip_special_tokens=True)
+            table["chosen_text"].extend(gather_object(chosen_text))
+            table["rejected_text"].extend(gather_object(rejected_text))
+            table["logits"].extend(
+                gather_object([[round(inner_item, 4) for inner_item in item] for item in logits.tolist()])
+            )
+            if num_print_samples >= 0 and len(table["chosen_text"]) >= num_print_samples:
+                break
+        df = pd.DataFrame(table)
+        print_rich_table(pd.DataFrame(table))
+        if self.accelerator.process_index == 0:
+            print_rich_table(df[:num_print_samples])
+            if "wandb" in self.args.report_to:
+                import wandb
+
+                if wandb.run is not None:
+                    wandb.log({"completions": wandb.Table(dataframe=df)})
+                    
+                    

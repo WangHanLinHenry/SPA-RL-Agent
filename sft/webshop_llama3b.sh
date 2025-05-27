@@ -7,16 +7,13 @@ accumulation_step=$((${batch_size}/${node_num}/${micro_batch_size}))
 export CUDA_VISIBLE_DEVICES=4,5,6,7
 export NCCL_P2P_LEVEL=NVL
 
-model_path="/data/models/Llama-3.2-3B-Instruct"
-# model_path="/home/hanlin/hlwang_projects/Agent_R1/sft/ckt/alfworld-Llama-3.2-3B-Instruct-trial"
-# model_path="/data/models/Llama-2-7b-chat-hf"
-# alfworld_Llama-3-trial
+model_path="./models/Llama-3.2-3B-Instruct"
 
-python -m torch.distributed.run --nproc_per_node=${node_num} --master_port=20002 /home/hanlin/hlwang_projects/Agent_R1/fastchat/train/train.py \
+python -m torch.distributed.run --nproc_per_node=${node_num} --master_port=20002 fastchat/train/train.py \
     --model_name_or_path ${model_path} \
-    --data_path /home/hanlin/hlwang_projects/IPR/data/webshop_sft.json \
+    --data_path /data/webshop_sft.json \
     --bf16 True \
-    --output_dir /home/hanlin/hlwang_projects/Agent_R1/sft/ckt/webshop-Llama-3-trial \
+    --output_dir /ckt/llama3b_webshop_sft \
     --num_train_epochs 3 \
     --per_device_train_batch_size ${micro_batch_size} \
     --per_device_eval_batch_size 4 \

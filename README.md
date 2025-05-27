@@ -7,7 +7,9 @@
 
 The repository contains the codes for our paper "[SPA-RL: Reinforcing LLM Agents via Stepwise Progress Attribution]()"
 
-![image](./assets/spa_rl_framework.png)
+<p align="center">
+  <img src="./assets/spa_rl_framework.png" width="95%">
+</p>
 
 This paper introduces **Stepwise Progress Attribution (SPA)**, a novel reward redistribution framework that provides fine-grained intermediate rewards by decomposing delayed rewards into incremental, per-step contributions, enabling more effective reinforcement learning for complex, multi-step agent tasks (Webshop, ALFWorld and VirtualHome).
 
@@ -58,11 +60,24 @@ cd sft
 bash alfworld_llama3b.sh
 # For Webshop environment
 bash webshop_llama3b.sh
+# For VirtualHome environment
+bash virtualhome_llama3b.sh
 ```
+⚠️ Note that the bash scripts provide the hyperparameters to reproduce our results. You should modify the settings, such as the model path, according to your own environment.
 
 #### Explored Trajectories Collection
 
+```
+cd ..
+# For ALFWorld environment
+bash exploration/alfworld/my_generate_response.sh
+# For WebShop environment
+bash exploration/webshop/my_generate_response_webshop.sh
+```
+
 #### Progress Estimator Training
+
+To 
 
 #### Stepwise Progress Prediction
 
