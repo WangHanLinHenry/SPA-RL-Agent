@@ -19,7 +19,7 @@ This paper introduces **Stepwise Progress Attribution (SPA)**, a novel reward re
 
 
 
-## 🎉News
+# 🎉News
 - [2025.05.26] 🚀SPA-RL-Agent Repo launched!
 
 ## 📝Contents
@@ -38,7 +38,7 @@ This paper introduces **Stepwise Progress Attribution (SPA)**, a novel reward re
   - [GRPO](#grpo)
   - [RAGEN](#ragen)
 
-### ⚙️ Setup
+## ⚙️ Setup
 Due to library version incompatibilities, we set up two separate virtual environments:
 - One for training the progress estimator
 - Another for RL training and evaluation
@@ -50,9 +50,9 @@ Install Python Environment for RL training and evaluation
 ```
 ```
 
-### ⛏️ Usage
+## ⛏️ Usage
 
-#### Base Agent SFT Training
+### Base Agent SFT Training
 
 ```
 cd sft
@@ -65,7 +65,7 @@ bash virtualhome_llama3b.sh
 ```
 ⚠️ Note that the bash scripts provide the hyperparameters to reproduce our results. You should modify the settings, such as the model path, according to your own environment.
 
-#### Explored Trajectories Collection
+### Explored Trajectories Collection
 
 ```
 cd ..
@@ -75,17 +75,37 @@ bash exploration/alfworld/my_generate_response.sh
 bash exploration/webshop/my_generate_response_webshop.sh
 ```
 
-#### Progress Estimator Training
+### Progress Estimator Training
 
-To 
+To orgainize the exploration data for progress estimator training, please run the following scripts firstly.
+```
+python prm/data_org.py
+```
+Then you could run the following script to train progress estimator.
+```
+deepspeed --include=localhost:0,1,2,3 prm/train_our_progress_model.py
+```
 
-#### Stepwise Progress Prediction
+### Stepwise Progress Prediction
 
-#### RL Training
+```
+python prm/inference_prm.py
+```
 
-#### Evaluation
+### RL Training
 
-### 💪 Baselines
+To organize the inference data for RL training, please run the following script first.
+```
+
+```
+Then run the following script for RL training:
+```
+
+```
+
+### Evaluation
+
+### Running Baselines
 
 ## 🌹 Acknowledgement
 
