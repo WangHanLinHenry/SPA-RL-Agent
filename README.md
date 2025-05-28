@@ -38,21 +38,41 @@ This paper introduces **Stepwise Progress Attribution (SPA)**, a novel reward re
 - [Baselines](#baselines)
   - [GRPO](#grpo)
   - [RAGEN](#ragen)
+  - ...
 
 ## ⚙️ Setup
-Due to library version incompatibilities, we set up two separate virtual environments:
-- One for training the progress estimator
-- Another for RL training and evaluation
+```
+# Create virtual environment for agentic evaluation
+conda create -n SPA python=3.9
+conda activate SPA
+pip install -r requirements.txt
 
-Install Python Environment for progress estimator
-```
-pip install -r requirements1.txt
-```
-Install Python Environment for RL training and evaluation
-```
-pip install -r requirements2.txt
+# Download webshop environment setting
+cd envs/webshop
+pip install -e .
+python -m spacy download en_core_web_lg
+conda install -y -c conda-forge openjdk=11
+
+# Download data for WebShop environment
+gdown https://drive.google.com/uc?id=1G_0ccLWn5kZE5rpeyAdh_YuoNzvBUjT9
+gdown https://drive.google.com/uc?id=11zOUDkJSgGhYin9NxQtG8PVpDsika86y
+unzip data.zip
+mkdir search_index
+unzip indexes.zip -d search_index/
+
+# Download data for ALFWorld environment
+cd ../..
+cd eval_agent/data/alfworld
+gdown https://drive.google.com/uc?id=1y7Vqeo0_xm9d3I07vZaP6qbPFtyuJ6kI
+unzip alfworld_data.zip
 ```
 
+Create another virtual environment for RL training due to package conflicts:
+```
+conda create -n RL_train python=3.10
+conda activate RL_train
+pip install -r ppo/requirements.txt
+```
 
 ## ⛏️ Usage
 
