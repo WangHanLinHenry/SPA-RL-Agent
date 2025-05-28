@@ -79,6 +79,7 @@ pip install -r ppo/requirements.txt
 ### 🤖 Base Agent SFT Training
 
 ```
+conda activate SPA
 cd sft
 # For ALFWorld environment
 bash alfworld_llama3b.sh
@@ -124,7 +125,7 @@ python prm/rl_data_org.py
 ```
 Next, execute the following script to perform reinforcement learning training using LoRA:
 ```
-conda activate rl
+conda activate RL_train
 bash ppo/train_ppo.sh
 ```
 
@@ -135,6 +136,7 @@ python ppo/merge.py
 ```
 Then, we would run the evaluation scripts:
 ```
+conda activate SPA
 # For ALFWorld environment
 bash eval/llama3_2_3b_eval_alfworld.sh
 # For WebShop environment
@@ -154,7 +156,7 @@ Also very thankful for my wonderful co-authors: [Chak Tou Leong](https://cooperl
 
 
 ## 🙏 Citation
-If you find our work useful in your research please consider citing our paper:
+If you find our work useful in your research, please consider citing our paper:
 ```
 
 ```
