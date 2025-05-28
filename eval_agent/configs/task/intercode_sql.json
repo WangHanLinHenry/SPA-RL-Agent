@@ -1,0 +1,12 @@
+{
+    "task": {
+        "task_class": "IntercodeSQLTask"
+    },
+    "env_config": {
+        "env_class": "IntercodeSQLEnv",
+        "instruction_path": "eval_agent/prompt/instructions/intercode_sql_inst.txt",
+        "icl_path": "eval_agent/prompt/icl_examples/intercode_sql_icl.json",
+        "icl_format": "conversation",
+        "max_steps": 10
+    }
+}

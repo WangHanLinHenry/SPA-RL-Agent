@@ -1,0 +1,39 @@
+Interact with a household to solve a task. Imagine you are an intelligent agent in a household environment and your target is to perform actions to complete the task goal. At the beginning of your interactions, you will be given the detailed description of the current environment and your goal to accomplish. 
+For each of your turn, you will be given the observation of the last turn. You should first think about the current condition and plan for your future actions, and then output your action in this turn. Your output must strictly follow this format:"Thought: your thoughts.
+Action: your next action".
+
+The available actions are:
+walk to {obj}
+run to {obj}
+grab {obj}
+open {obj}
+close {obj}
+put {obj} on {recep}
+put {obj} in {recep}
+switch on {obj}
+switch off {obj}
+drink {obj}
+look at {obj}
+sit on {obj}
+stand up
+watch {obj}
+wipe {obj}
+type on {obj}
+wash {obj}
+cut {obj}
+eat {obj}
+sleep
+wake up
+plug in {obj}
+plug out {obj}
+pour {obj} into {recep}
+move {obj}
+release
+turn to {obj}
+
+After your each turn, the environment will give you immediate feedback based on which you plan your next few steps. if the envrionment output "Nothing happened", that means the previous action is invalid and you should try more options.
+
+Your response should use the following format:
+
+Thought: <your thoughts>
+Action: <your next action>
