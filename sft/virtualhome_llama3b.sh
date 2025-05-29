@@ -3,16 +3,17 @@ batch_size=16
 micro_batch_size=2
 accumulation_step=$((${batch_size}/${node_num}/${micro_batch_size}))
 
-export CUDA_VISIBLE_DEVICES=4,5,6,7
+# 采用2,3,4号来进行训练
+export CUDA_VISIBLE_DEVICES=0,1,2,3
 export NCCL_P2P_LEVEL=NVL
 
 model_path="/models/Llama-3.2-3B-Instruct"
 
 python -m torch.distributed.run --nproc_per_node=${node_num} --master_port=20002 fastchat/train/train.py \
     --model_name_or_path ${model_path} \
-    --data_path data/alfworld_sft.json \
+    --data_path data/virtualhome/new_train_sft.json \
     --bf16 True \
-    --output_dir ckt/llama3b_alfworld_sft \
+    --output_dir ckt/llama3b_virtualhome_sft \
     --num_train_epochs 3 \
     --per_device_train_batch_size ${micro_batch_size} \
     --per_device_eval_batch_size 4 \

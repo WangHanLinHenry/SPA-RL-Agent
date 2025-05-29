@@ -1,6 +1,6 @@
 import os
 
-os.environ["OPENAI_API_KEY"] = "sb-ed07016f987c6bb701b74fcf399c56d067b5a5c8bc3ad177"
+os.environ["OPENAI_API_KEY"] = ""
 
 import json
 import logging

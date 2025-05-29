@@ -18,11 +18,10 @@ from collections import OrderedDict
 import parse
 import json
 
-sys.path.append('/data/hanlin/progprompt_vh_main/scripts/virtualhome_master')
-from virtualhome.simulation.evolving_graph import utils
-from virtualhome.simulation.evolving_graph.scripts import parse_script_line, Script
-from virtualhome.simulation.evolving_graph.execution import ScriptExecutor
-from virtualhome.simulation.evolving_graph.environment import EnvironmentGraph, EnvironmentState
+from virtualhome_master.virtualhome.simulation.evolving_graph import utils
+from virtualhome_master.virtualhome.simulation.evolving_graph.scripts import parse_script_line, Script
+from virtualhome_master.virtualhome.simulation.evolving_graph.execution import ScriptExecutor
+from virtualhome_master.virtualhome.simulation.evolving_graph.environment import EnvironmentGraph, EnvironmentState
 
 logger = logging.getLogger("agent_frame")
 
@@ -107,7 +106,7 @@ def merge_add(d, k, v):
     else:
         d[k] = v
 
-with open("/home/hanlin/hlwang_projects/FYP/class_name_equivalence.json", 'r') as f:
+with open("virtualhome_master/class_name_equivalence.json", 'r') as f:
     abstract2detail = json.load(f)
 
 detail2abstract = dict()
@@ -402,7 +401,7 @@ class VirtualHomeEnv(BaseEnv):
         self.task_path = task_path
         # self.gt_id_record = task_path['object_id_dict']
 
-        scene_path = "/data/hanlin/language-planner-main/evaluation-code/dataset/programs_processed_precond_nograb_morepreconds/init_and_final_graphs/" + self.task_path['path'][151:-4] + ".json"
+        scene_path = "virtualhome_master/init_and_final_graphs/" + self.task_path['path'][151:-4] + ".json"
         with open(scene_path) as f:
             Tdata = json.load(f)
         Tdata = Tdata['init_graph']

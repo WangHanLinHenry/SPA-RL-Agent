@@ -1,13 +1,13 @@
 {
     "task": {
         "task_class": "AlfWorldTask",
-        "filepath": "/home/hanlin/hlwang_projects/IPR/eval_agent/data"
+        "filepath": "eval_agent/data"
     },
     "env_config": {
         "env_class": "VirtualHomeEnv",
-        "instruction_path": "/home/hanlin/hlwang_projects/IPR/eval_agent/prompt/instructions/virtualhome_inst.txt",
-        "icl_path": "/home/hanlin/hlwang_projects/IPR/eval_agent/prompt/icl_examples/virtualhome_icl.json",
+        "instruction_path": "eval_agent/prompt/instructions/virtualhome_inst.txt",
+        "icl_path": "eval_agent/prompt/icl_examples/virtualhome_icl.json",
         "icl_format": "conversation",
-        "max_steps": 20
+        "max_steps": 40
     }
 }

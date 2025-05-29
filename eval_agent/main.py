@@ -114,7 +114,6 @@ def main(args: argparse.Namespace):
         from eval_agent.utils.replace_sciworld_score import sciworld_monkey_patch
         sciworld_monkey_patch()
         env_config['env'] = ScienceWorldEnv("", serverPath=os.path.join(os.getcwd(), env_config['env_jar_path']), envStepLimit=200)
-        # env_config['env'] = ScienceWorldEnv("", serverPath="/ML-A800/home/yifan/code/AgentPipeline/envs/scienceworld/scienceworld.jar", envStepLimit=200)
 
     # initialize all the tasks
     task_config: Dict[str, Any] = exp_config["task"]
@@ -206,7 +205,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--exp_path",
         type=str,
-        default="/home/hanlin/hlwang_projects/IPR/eval_agent/configs/task",
+        default="eval_agent/configs/task",
         help="Config path of experiment.",
     )
     parser.add_argument(
@@ -236,7 +235,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--agent_path",
         type=str,
-        default="/home/hanlin/hlwang_projects/IPR/eval_agent/configs/model",
+        default="eval_agent/configs/model",
         help="Config path of model.",
     )
     parser.add_argument(

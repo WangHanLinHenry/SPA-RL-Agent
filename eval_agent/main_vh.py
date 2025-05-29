@@ -8,7 +8,7 @@ from tqdm import tqdm
 from tqdm.contrib.logging import logging_redirect_tqdm
 from colorama import Fore
 
-import eval_agent.tasks as tasks
+# import eval_agent.tasks as tasks
 import eval_agent.agents as agents
 import eval_agent.envs as envs
 from eval_agent.utils.datatypes import State
@@ -97,7 +97,7 @@ def merge_add(d, k, v):
     else:
         d[k] = v
 
-with open("/home/hanlin/hlwang_projects/FYP/class_name_equivalence.json", 'r') as f:
+with open("virtualhome_master/class_name_equivalence.json", 'r') as f:
     abstract2detail = json.load(f)
 
 detail2abstract = dict()
@@ -202,11 +202,10 @@ from tqdm import tqdm
 import re
 import random
 
-sys.path.append('/data/hanlin/progprompt_vh_main/scripts/virtualhome_master')
-from virtualhome.simulation.evolving_graph import utils
-from virtualhome.simulation.evolving_graph.scripts import parse_script_line, Script
-from virtualhome.simulation.evolving_graph.execution import ScriptExecutor
-from virtualhome.simulation.evolving_graph.environment import EnvironmentGraph, EnvironmentState
+from virtualhome_master.virtualhome.simulation.evolving_graph import utils
+from virtualhome_master.virtualhome.simulation.evolving_graph.scripts import parse_script_line, Script
+from virtualhome_master.virtualhome.simulation.evolving_graph.execution import ScriptExecutor
+from virtualhome_master.virtualhome.simulation.evolving_graph.environment import EnvironmentGraph, EnvironmentState
 
 def remove_duplicate_edge(input_dict):
     Edges = input_dict['edges']
@@ -469,7 +468,7 @@ def main(args: argparse.Namespace):
         agent_config['config']['model_name'] = args.model_name
 
     if args.output_path == "":
-        output_path = os.path.join("/home/hanlin/hlwang_projects/IPR/outputs", agent_config['config']['model_name'].replace('/', '_'), args.exp_config+args.exp_name)
+        output_path = os.path.join("eval/eval_virtualhome", agent_config['config']['model_name'].replace('/', '_'), args.exp_config+args.exp_name)
     else:
         output_path = args.output_path
     pathlib.Path(output_path).mkdir(parents=True, exist_ok=True)
@@ -580,7 +579,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--exp_path",
         type=str,
-        default="/home/hanlin/hlwang_projects/IPR/eval_agent/configs/task",
+        default="eval_agent/configs/task",
         help="Config path of experiment.",
     )
     parser.add_argument(
@@ -610,7 +609,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--agent_path",
         type=str,
-        default="/home/hanlin/hlwang_projects/IPR/eval_agent/configs/model",
+        default="eval_agent/configs/model",
         help="Config path of model.",
     )
     parser.add_argument(

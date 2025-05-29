@@ -20,6 +20,9 @@ import eval_agent.envs as envs
 from eval_agent.utils.datatypes import State
 import time
 
+import numpy as np
+
+
 prompt_for_environment ={
     "webshop": [{
             "from": "human",
@@ -151,16 +154,57 @@ prompt_for_environment ={
             "from": "gpt",
             "value": "Thought: The code executed successfully without any errors and produced the expected output. I can now submit the solution.\nAction: submit."
         }
-    ]}
-
-ignore_task_id = {
-    "webshop":[
-        114, 121, 151, 154, 167, 203, 365, 1320, 1506, 1563, 1577, 1599, 1663, 1695, 1739, 1838, 1884, 1931, 1967, 2066, 4051, 4247, 4560, 4638, 4942, 5926, 5932, 6292, 6700, 7241, 8617, 10612, 10816, 1165, 1858, 9049, 9061, 9067, 9070, 6066,
     ],
-    "alfworld":[],
-    "intercode_sql": []
-}
-
+    "virtualhome": [
+        {
+            "from": "human",
+            "value": "Interact with a household to solve a task. Imagine you are an intelligent agent in a household environment and your target is to perform actions to complete the task goal. At the beginning of your interactions, you will be given the detailed description of the current environment and your goal to accomplish. \nFor each of your turn, you will be given the observation of the last turn. You should first think about the current condition and plan for your future actions, and then output your action in this turn. Your output must strictly follow this format:\"Thought: your thoughts.\nAction: your next action\".\n\nThe available actions are:\nwalk to {obj}\nrun to {obj}\ngrab {obj}\nopen {obj}\nclose {obj}\nput {obj} on {recep}\nput {obj} in {recep}\nswitch on {obj}\nswitch off {obj}\ndrink {obj}\nlook at {obj}\nsit on {obj}\nstand up\nwatch {obj}\nwipe {obj}\ntype on {obj}\nwash {obj}\ncut {obj}\neat {obj}\nsleep\nwake up\nplug in {obj}\nplug out {obj}\npour {obj} into {recep}\nmove {obj}\nrelease\nturn to {obj}\n\nAfter your each turn, the environment will give you immediate feedback based on which you plan your next few steps. if the envrionment output \"Nothing happened\", that means the previous action is invalid and you should try more options.\n\nYour response should use the following format:\n\nThought: <your thoughts>\nAction: <your next action>"
+        },
+        {
+            "from": "gpt",
+            "value": "OK"
+        },
+        {
+            "from": "human",
+            "value": "The task is Drink (Drink water)."
+        },
+        {
+            "from": "gpt",
+            "value": "Thought: To drink water, I need to first locate a water source in the household, so moving towards the dining room might bring me closer to finding water or a suitable container for drinking.\nAction: Walk to dining room"
+        },
+        {
+            "from": "human",
+            "value": "Observation:"
+        },
+        {
+            "from": "gpt",
+            "value": "Thought: I chose to walk to the water glass as it is likely located in the dining room where I can access water easily, aligning with the goal of drinking water.\nAction: Walk to water glass"
+        },
+        {
+            "from": "human",
+            "value": "Observation: water_glass is CLEAN."
+        },
+        {
+            "from": "gpt",
+            "value": "Thought: The current observation indicates that I've located a clean water glass, which is essential to proceed with the task of drinking water. Now, I need to fill it with water to accomplish the task goal.\nAction: Find water glass"
+        },
+        {
+            "from": "human",
+            "value": "Observation: water_glass is CLEAN."
+        },
+        {
+            "from": "gpt",
+            "value": "Thought: The observation indicates that the water glass is clean, and since the task is to drink water, holding the glass will allow further steps to achieve this goal.\nAction: Grab water glass"
+        },
+        {
+            "from": "human",
+            "value": "Observation: character, water_glass is CLEAN. You have water_glass."
+        },
+        {
+            "from": "gpt",
+            "value": "Thought: Since I have already obtained the water glass, the next logical step is to drink from it to complete the task of drinking water.\nAction: Drink water glass"
+        }
+    ]}
 
 def template_change(conversation):
     messages = []
@@ -191,57 +235,48 @@ def construct_llm_data(args: argparse.Namespace):
     env_config = exp_config["env_config"]
     task_name = args.exp_config
     
-    # if 'env_class' in env_config and  env_config['env_class'] == 'WebShopEnv':
-    #     env_config['env'] = WebAgentTextEnv(observation_mode="text", human_goals=True)
-
     # initialize the agent
     agent: agents.LMAgent = getattr(agents, agent_config["agent_class"])(
         agent_config["config"]
     )
 
-    # initialize all the tasks    
-    task_config: Dict[str, Any] = exp_config["task"]
+    # initialize virtualhome all the tasks
+    with open('data/virtualhome/new_train_conversation.jsonl', 'r') as file:
+        vh_sft_data = []
+        for line in file:
+            json_object = json.loads(line)
+            vh_sft_data.append(json_object)
     
-    task_class: tasks.Task = getattr(tasks, task_config["task_class"])
-    
-    all_tasks, n_tasks = task_class.load_tasks("train", args.part_num, args.part_idx)
-    print('n_tasks:', n_tasks)
-    sft_data = json.load(open(f"sft/data/{task_name}_sft.json"))
-    temp = {}
-    for item in sft_data:
-        temp[item['id']] = item
-    sft_data = temp
-    
-    final_data = []
+    split_lists = np.array_split(vh_sft_data, args.part_num)
+    splits_data = [list(arr) for arr in split_lists]
+    sft_data = splits_data[args.part_idx]
+    n_tasks = len(sft_data)
+
+    initial_data = []
+    if os.path.exists(f"{args.save_path}/{task_name}_traj_{args.part_idx}.json"):
+        with open(f"{args.save_path}/{task_name}_traj_{args.part_idx}.json", "r") as f:
+            initial_data = json.load(f)
+        initial_data_path = []
+        for each in initial_data:
+            initial_data_path.append(each['path'])
+        sft_data = [each for each in sft_data if each['path'] not in initial_data_path]
+    else:
+        with open(f"{args.save_path}/{task_name}_traj_{args.part_idx}.json", "w") as f:
+            json.dump([], f, indent=4)
+
+    print('n_tasks:', len(sft_data))
+
+    final_data = initial_data
     
     print("Start generating pair_data")
-
-    tobe_ignore = ignore_task_id[task_name]
-    if task_name == "alfworld":
-        new_sft_data = {}
-        for value in sft_data.values():
-            new_sft_data[value['game_file']] = value
     
     pbar = tqdm(total=n_tasks)
-    for task in all_tasks:
-        if task.task_id in tobe_ignore:
-            pbar.update(1)
-            continue
-        env: envs.BaseEnv = getattr(envs, env_config["env_class"])(task, **env_config)
+
+    for each_data in sft_data:
+
+        env: envs.BaseEnv = getattr(envs, env_config["env_class"])(each_data, **env_config)
         
-        if task_name == "webshop" or task_name == "intercode_sql":
-            cur_sft_data = sft_data[task.task_id]
-        elif task_name == "alfworld":
-            game_file = "/".join(["data"] + task.game_file.split('/')[8: -1])
-            # print(game_file)
-            flag=True
-            if game_file in new_sft_data and flag:
-                cur_sft_data = new_sft_data[game_file]
-            else:
-                pbar.update(1)
-                continue
-        
-        conversations = cur_sft_data['conversations']
+        conversations = each_data['conversations']
         # iteration_nums = len(conversations)//2-1
         iteration_nums = args.iteration_num
         
@@ -252,7 +287,7 @@ def construct_llm_data(args: argparse.Namespace):
             
             new_conversations = conversations[2:3]
             # if task_name == "webshop":
-            observation, state = env.reset()
+            init_obs, state = env.reset()
             env.state.history = template_change(prompt_for_environment[task_name] + [new_conversations[0]])
             
             while not state.finished:
@@ -272,18 +307,18 @@ def construct_llm_data(args: argparse.Namespace):
             end_time = time.time()
             
             new_item = {
-                "id": task.task_id,
+                "id": each_data['id'],
                 "iteration": j,
                 "agent_conversations": state.history,
                 'agent_final_reward': state.reward if (task_name == "webshop" or task_name=="intercode_sql") else state.success,
                 'time': end_time - start_time,
+                'path': each_data['path']
             }
             
-            if task_name == "alfworld":
-                new_item['game_file'] = cur_sft_data['game_file']
-            
             final_data.append(new_item)
+    
         pbar.update(1)
+        json.dump(final_data, open(f"{args.save_path}/{task_name}_traj_{args.part_idx}.json", "w"), indent=4)
     pbar.close()
             
     json.dump(final_data, open(f"{args.save_path}/{task_name}_traj_{args.part_idx}.json", "w"), indent=4)
@@ -354,11 +389,12 @@ if __name__ == "__main__":
         "--global_only",
         action="store_true",
     )
+    
     parser.add_argument(
         "--iteration_num",
         type=int,
         default=5,
     )
-    
+
     args = parser.parse_args()
     construct_llm_data(args)

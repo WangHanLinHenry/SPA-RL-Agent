@@ -26,8 +26,6 @@ This paper introduces **Stepwise Progress Attribution (SPA)**, a novel reward re
 ## 📝Contents
 
 - [Setup](#setup)
-  - [Installation](#installation)
-  - [Environment Setup](#environment-setup)
 - [Usage](#method)
   - [Base Agent SFT Training](#base-agent-sft-training)
   - [Explored Trajectories Collection](#environment-exploration)
@@ -65,6 +63,17 @@ cd ../..
 cd eval_agent/data/alfworld
 gdown https://drive.google.com/uc?id=1y7Vqeo0_xm9d3I07vZaP6qbPFtyuJ6kI
 unzip alfworld_data.zip
+
+# Download data for VirtualHome environment
+cd ../..
+gdown https://drive.google.com/uc?id=1kZKWkWhtJ-DneqfS1Nb_FybR1RBxPeef
+unzip virtualhome_master.zip
+
+# Download expert trajectories for Webshop, ALFWorld and VirtualHome environment
+cd ../..
+gdown https://drive.google.com/uc?id=1_tBMDixZcIjKuv-LExNllha-YIRxhKIq
+unzip data.zip
+
 ```
 
 Create another virtual environment for RL training due to package conflicts:
@@ -73,6 +82,7 @@ conda create -n RL_train python=3.10
 conda activate RL_train
 pip install -r ppo/requirements.txt
 ```
+
 
 ## ⛏️ Usage
 
@@ -160,4 +170,3 @@ If you find our work useful in your research, please consider citing our paper:
 ```
 
 ```
-

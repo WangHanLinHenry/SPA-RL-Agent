@@ -11,9 +11,9 @@ model_path="./models/Llama-3.2-3B-Instruct"
 
 python -m torch.distributed.run --nproc_per_node=${node_num} --master_port=20002 fastchat/train/train.py \
     --model_name_or_path ${model_path} \
-    --data_path /data/webshop_sft.json \
+    --data_path data/webshop_sft.json \
     --bf16 True \
-    --output_dir /ckt/llama3b_webshop_sft \
+    --output_dir ckt/llama3b_webshop_sft \
     --num_train_epochs 3 \
     --per_device_train_batch_size ${micro_batch_size} \
     --per_device_eval_batch_size 4 \
