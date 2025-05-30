@@ -168,5 +168,10 @@ Also very thankful for my wonderful co-authors: [Chak Tou Leong](https://cooperl
 ## 🙏 Citation
 If you find our work useful in your research, please consider citing our paper:
 ```
-
+@article{wang2025spa,
+  title={SPA-RL: Reinforcing LLM Agents via Stepwise Progress Attribution},
+  author={Wang, Hanlin and Leong, Chak Tou and Wang, Jiashuo and Wang, Jian and Li, Wenjie},
+  journal={arXiv preprint arXiv:2505.20732},
+  year={2025}
+}
 ```
