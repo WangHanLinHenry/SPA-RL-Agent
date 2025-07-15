@@ -42,7 +42,7 @@ class AlfWorldTask(Task):
 
     @classmethod
     def load_tasks(cls, split: str, part_num: int, part_idx: int = -1, batch_size: int = 1) -> Tuple[Iterable[Task], int]:
-        os.environ["ALFWORLD_DATA"] = "/home/hanlin/hlwang_projects/IPR/eval_agent/data/alfworld"
+        os.environ["ALFWORLD_DATA"] = "eval_agent/data/alfworld"
         alfworld_data_path = os.environ.get("ALFWORLD_DATA")
 
         with open(os.path.join(alfworld_data_path, "base_config.yaml")) as f:

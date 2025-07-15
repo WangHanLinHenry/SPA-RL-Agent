@@ -22,9 +22,9 @@ class WebShopTask(Task):
     @classmethod
     def load_tasks(cls, split: str, part_num: int, part_idx: int = -1) -> Tuple[List[Task], int]:
         if split == 'train':
-            idxs = json.load(open("/home/hanlin/hlwang_projects/IPR/eval_agent/data/webshop/train_indices.json"))
+            idxs = json.load(open("eval_agent/data/webshop/train_indices.json"))
         else:
-            idxs = json.load(open("/home/hanlin/hlwang_projects/IPR/eval_agent/data/webshop/test_indices.json"))
+            idxs = json.load(open("eval_agent/data/webshop/test_indices.json"))
         if part_num == 1:
             idxs = idxs
         else:
