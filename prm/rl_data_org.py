@@ -18,29 +18,29 @@ for annotation in prm_annotations:
     id_predictions[id].append(annotation['agent_final_reward'])
 
 # Update turn_values for each sample
-for annotation in prm_annotations:
-    id = annotation['id']
+# for annotation in prm_annotations:
+#     id = annotation['id']
     
-    # Add adjustment value to each turn value
-    each_signal = annotation['agent_final_reward']
+#     # Add adjustment value to each turn value
+#     each_signal = annotation['agent_final_reward']
     
-    each_id_all_values = id_predictions[id]
-    # Remove only one current each_signal value from the list
-    filtered_values = each_id_all_values.copy()
-    filtered_values.remove(each_signal)
-    # If filtered list is empty, use original value
-    if len(filtered_values) == 0:
-        each_value = each_signal
-    else:
-        # Recalculate mean and standard deviation
-        new_mean = np.mean(filtered_values)
-        new_std = np.std(filtered_values) if len(filtered_values) > 1 else 1.0
-        if new_std == 0:
-            new_std = 1.0
-        # Calculate standardized value using new mean and std    
-        each_value = each_signal - new_mean
+#     each_id_all_values = id_predictions[id]
+#     # Remove only one current each_signal value from the list
+#     filtered_values = each_id_all_values.copy()
+#     filtered_values.remove(each_signal)
+#     # If filtered list is empty, use original value
+#     if len(filtered_values) == 0:
+#         each_value = each_signal
+#     else:
+#         # Recalculate mean and standard deviation
+#         new_mean = np.mean(filtered_values)
+#         new_std = np.std(filtered_values) if len(filtered_values) > 1 else 1.0
+#         if new_std == 0:
+#             new_std = 1.0
+#         # Calculate standardized value using new mean and std    
+#         each_value = each_signal - new_mean
 
-    annotation['turn_values'] = [each_value for v in annotation['turn_values']]
+#     annotation['turn_values'] = [each_value for v in annotation['turn_values']]
 
     
 template_human = "<|start_header_id|>user<|end_header_id|>\n\n{system_message}<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n"

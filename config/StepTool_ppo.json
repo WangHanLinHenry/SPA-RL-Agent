@@ -1,0 +1,22 @@
+{
+    "peft_kwargs": {
+        "r": 8,
+        "lora_alpha": 16,
+        "bias": "none",
+        "task_type": "CAUSAL_LM"
+    },
+    "ppo_kwargs": {
+        "learning_rate": 1e-5,
+        "log_with": "wandb",
+        "remove_unused_columns": false,
+        "batch_size": 4,
+        "mini_batch_size": 1,
+        "gradient_accumulation_steps": 4,
+        "kl_penalty": "kl",
+        "init_kl_coef": 0.3,
+        "target_kl": 6,
+        "target": 6,
+        "horizon": 10000,
+        "gamma": 0.99
+    }
+}

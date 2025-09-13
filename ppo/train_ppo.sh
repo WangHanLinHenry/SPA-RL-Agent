@@ -18,7 +18,7 @@ torchrun \
     ppo/step_ppo.py \
     --model_path ${MODEL_PATH} \
     --model_type ${MODEL_TYPE} \
-    --config_path config/${MODEL_TYPE}/StepTool_ppo.json \
+    --config_path config/StepTool_ppo.json \
     --data_file prm/sampled_data_rl_training_webshop.json \
     --epochs 1 \
     
